@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.55.4 — Repository nell'organizzazione tastieredigitali
+
+### Changed
+- **README**: il comando `git clone` usa `tastieredigitali/SentinelTD`.
+
 ## 2.55.3 — Aggiornamento notturno: una sola immagine di rollback per servizio
 
 ### Changed

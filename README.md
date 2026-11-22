@@ -188,7 +188,7 @@ network and is never exposed.
 ## Installation
 
 ```bash
-git clone https://github.com/Giuseppe-sciarra/SentinelTD.git
+git clone https://github.com/tastieredigitali/SentinelTD.git
 cd SentinelTD
 
 # 1. Configuration

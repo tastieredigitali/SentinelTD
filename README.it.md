@@ -204,7 +204,7 @@ e non viene mai esposto.
 ## Installazione
 
 ```bash
-git clone https://github.com/Giuseppe-sciarra/SentinelTD.git
+git clone https://github.com/tastieredigitali/SentinelTD.git
 cd SentinelTD
 
 # 1. Configurazione
