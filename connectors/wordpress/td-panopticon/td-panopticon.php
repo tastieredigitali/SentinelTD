@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Sentinel TD Agent
  * Description: Connettore di Sentinel TD: espone stato versioni/update via REST e consente aggiornamenti da remoto. Token e collegamento in Impostazioni → Sentinel TD.
- * Version: 2.41.9
+ * Version: 2.41.10
  * Author: Tastiere Digitali
  *
  * INSTALLAZIONE: carica lo zip da Plugin → Aggiungi nuovo → Carica plugin, poi attiva.
@@ -623,12 +623,12 @@ add_action('rest_api_init', function () {
  * wp-content/uploads/sentinel-backups/ ({tipo}-{slug}-{versione}-{data}.zip). Il pannello
  * puo' poi RIPRISTINARE quella versione con un clic, o da solo se la home si rompe dopo
  * l'aggiornamento. Limiti: niente copia oltre i 300 MB (temi e plugin con dentro media) e
- * se lo spazio non basta; si tengono le ultime 2 copie per elemento e niente oltre 14 giorni.
+ * se lo spazio non basta; si tiene solo l'ultima copia per elemento e niente oltre 14 giorni.
  * Senza copia l'aggiornamento parte comunque: la risposta dice perche' manca.
  * ------------------------------------------------------------------------- */
 if (!defined('TDPANOP_BACKUP_MAX_BYTES')) {
     define('TDPANOP_BACKUP_MAX_BYTES', 300 * 1048576);
-    define('TDPANOP_BACKUP_KEEP', 2);
+    define('TDPANOP_BACKUP_KEEP', 1);
     define('TDPANOP_BACKUP_DAYS', 14);
 }
 
@@ -816,6 +816,18 @@ function tdpanop_backups_for(string $type, string $slug): array
     foreach ((array) glob($dir . '/' . str_replace(['[', ']'], ['\\[', '\\]'], $prefix) . '*.zip') as $f) {
         $name = basename($f);
         if (!preg_match('/^' . preg_quote($prefix, '/') . '(.+)-(\d{8}-\d{6})\.zip$/', $name, $m)) {
+            continue;
+        }
+        // "plugin-elementor-" e' anche l'inizio delle copie di elementor-pro: quelle non sono sue
+        $parts = explode('-', $m[1]);
+        $other = false;
+        for ($i = 1; $i < count($parts); $i++) {
+            if (is_dir(tdpanop_item_dir($type, $slug . '-' . implode('-', array_slice($parts, 0, $i))))) {
+                $other = true;
+                break;
+            }
+        }
+        if ($other) {
             continue;
         }
         $out[] = ['file' => $name, 'version' => $m[1], 'at' => gmdate('c', filemtime($f)), 'bytes' => (int) filesize($f)];

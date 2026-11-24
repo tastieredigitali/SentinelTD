@@ -72,8 +72,8 @@ I dati mostrati sono un parco di prova con nomi inventati (interfaccia in ingles
 - **Controllo della home**: un'istantanea prima e dopo ogni aggiornamento; il report dice se
   il sito è uguale, se è cambiato vistosamente (istantanee allegate) o se si è rotto
 - **Copia prima dell'aggiornamento e ripristino con un clic** (WordPress): prima di aggiornare un
-  plugin o un tema il connettore zippa la versione attuale in `uploads/sentinel-backups/` (le
-  ultime due per elemento, 14 giorni). Lo storico del sito mostra *Ripristina la x.y* su ogni
+  plugin o un tema il connettore zippa la versione attuale in `uploads/sentinel-backups/` (solo
+  l'ultima per elemento, 14 giorni). Lo storico del sito mostra *Ripristina la x.y* su ogni
   aggiornamento con una copia. E se la home si rompe dopo un aggiornamento — un errore o un 5xx
   che prima non c'erano — Sentinel **ripristina da solo**, blocca quei componenti alla versione
   rimessa e te lo dice

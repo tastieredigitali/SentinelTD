@@ -4,7 +4,7 @@ Sentinel TD talks to each website through a small connector installed on the sit
 
 | Platform | Source | Current version |
 |---|---|---|
-| WordPress | `wordpress/td-panopticon/` | 2.41.9 |
+| WordPress | `wordpress/td-panopticon/` | 2.41.10 |
 | Joomla 4/5/6 | `joomla/plg_system_tdpanopticon/` | 1.43.3 |
 
 The internal identifiers (`td-panopticon` folder, `tdpanopticon` Joomla element, REST
@@ -87,6 +87,10 @@ what the site sends *out*.
   package it returned empty name, type and version: the installed ids now come from
   `onExtensionAfterInstall`. The plugin and module caches are cleaned after enabling. A template
   is only enabled in the extensions table: the site's default style is not changed.
+- WordPress 2.41.10: only the last copy of each plugin or theme is kept in
+  `wp-content/uploads/sentinel-backups/` (it was two). The older one goes at the next update of
+  that item, or after 14 days. The copies of a plugin whose slug
+  starts the same (`elementor` / `elementor-pro`) are no longer counted as its own.
 - WordPress 2.41.9: an install with `activate=1` no longer activates a plugin that is already
   active (also network-active on a multisite) a second time.
 - WordPress 2.41.8: the "Traduzioni (N)" entry in the status carries `announced`, when wordpress.org

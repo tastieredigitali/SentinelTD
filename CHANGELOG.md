@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.55.6 — Connettore WordPress 2.41.10: una sola copia per plugin o tema
+
+### Changed
+- **Il connettore WordPress tiene solo l'ultima copia di ogni plugin o tema** fatta prima di un
+  aggiornamento (prima due), sempre per 14 giorni al massimo. È quella a cui porta *Ripristina la
+  x.y* dell'ultimo aggiornamento. Sui siti che ne hanno già due, la più vecchia viene cancellata
+  al prossimo aggiornamento di quel plugin o tema, oppure allo scadere dei 14 giorni.
+
+### Fixed
+- **Le copie di un plugin non vengono più scambiate con quelle di un altro dal nome che inizia
+  uguale** (per esempio `elementor` ed `elementor-pro`). Prima, aggiornando `elementor`, le copie
+  di `elementor-pro` contavano come sue: potevano essere cancellate nella pulizia e comparire tra
+  quelle ripristinabili del plugin sbagliato.
+
 ## 2.55.5 — Connettore Joomla 1.43.3: niente più email "Disponibile aggiornamento di Joomla!"
 
 ### Added

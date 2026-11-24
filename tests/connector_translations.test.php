@@ -12,6 +12,7 @@
 //   di un ripristino interrotto; un ripristino appena iniziato resta
 // - WordPress (core): quattro file .po; vale il piu' recente (spesso il backend), sia per dire
 //   se e' gia' a posto sia per la data nel messaggio; date nel fuso del sito, non in UTC
+// - una sola copia per elemento, senza toccare quelle di un plugin dal nome che inizia uguale
 // - appena annunciata (tr_wait dal pannello): non si installa prima del tempo, dopo si'
 // Uso: php tests/connector_translations.test.php   (si rilancia da solo per gli altri casi)
 $case = $argv[1] ?? 'installata';
@@ -172,6 +173,24 @@ if ($case === 'installata') {
     check(!is_dir("$bk/.restore-vecchio") && is_dir("$bk/.restore-adesso"), 'avanzi vecchi via, ripristino in corso no');
     check(is_file("$bk/index.php"), 'la cartella resta protetta');
     echo "Copia spenta: le copie gia' fatte si cancellano al primo aggiornamento.\n";
+} elseif ($case === 'copiaunica') {
+    // una sola copia per elemento; le copie di un plugin col nome che inizia uguale non si toccano
+    // (qui "td" e "td-panopticon", come elementor ed elementor-pro)
+    $bk = ABSPATH . 'wp-content/uploads/sentinel-backups';
+    @mkdir($bk, 0777, true);
+    $t = time();
+    foreach (['plugin-td-1.0-20261120-100000.zip' => 300, 'plugin-td-1.1-20261121-100000.zip' => 200,
+              'plugin-td-1.2-beta-1-20261122-100000.zip' => 100, 'plugin-td-panopticon-2.41.9-20261119-100000.zip' => 400] as $z => $ago) {
+        file_put_contents("$bk/$z", 'zip');
+        touch("$bk/$z", $t - $ago);
+    }
+    check(TDPANOP_BACKUP_KEEP === 1, 'una copia per elemento');
+    tdpanop_backups_prune('plugin', 'td');
+    $left = array_map('basename', glob("$bk/*.zip"));
+    sort($left);
+    check($left === ['plugin-td-1.2-beta-1-20261122-100000.zip', 'plugin-td-panopticon-2.41.9-20261119-100000.zip'], 'resta l\'ultima di td e quella di td-panopticon: ' . json_encode($left));
+    check(array_column(tdpanop_backups_for('plugin', 'td-panopticon'), 'version') === ['2.41.9'], 'la copia dell\'altro plugin si vede ancora');
+    echo "Una sola copia per elemento; quelle di un plugin dal nome simile restano.\n";
 } elseif ($case === 'appenauscita') {
     // en_GB annunciata 30 minuti fa: con 90 minuti di attesa resta al giro dopo, senza installare
     check(tdpanop_translation_announced(['updated' => '2026-10-28 19:33:54']) === gmmktime(19, 33, 54, 10, 28, 2026), 'data dell\'annuncio in UTC');
@@ -192,7 +211,7 @@ if ($case === 'installata') {
     echo "Memoria del 2.39 cancellata: Sentinel mostra quello che mostra WordPress.\n";
 }
 if ($case === 'installata') {
-    foreach (['riproposta', 'secondo', 'fallita', 'nonverificata', 'core-riproposta', 'core-installata', 'copiaspenta', 'appenauscita', 'memoria239'] as $next) {
+    foreach (['riproposta', 'secondo', 'fallita', 'nonverificata', 'core-riproposta', 'core-installata', 'copiaspenta', 'copiaunica', 'appenauscita', 'memoria239'] as $next) {
         passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' ' . $next, $code);
         if ($code !== 0) { exit($code); }
     }

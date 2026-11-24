@@ -67,7 +67,7 @@ The data shown is a demo fleet with made-up names.
 - **Homepage check**: a snapshot before and after every update; the report says whether the
   site looks the same, changed noticeably (snapshots attached) or broke
 - **Copy before the update, restore with one click** (WordPress): before updating a plugin or
-  theme the connector zips the current version into `uploads/sentinel-backups/` (last two per
+  theme the connector zips the current version into `uploads/sentinel-backups/` (the last one per
   item, 14 days). The site history shows *Restore x.y* on every update that has a copy. And if
   the homepage breaks after an update — an error or a 5xx that was not there before — Sentinel
   **rolls back by itself**, locks those components to the restored version and tells you
