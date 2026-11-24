@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.55.5 — Connettore Joomla 1.43.3: niente più email "Disponibile aggiornamento di Joomla!"
+
+### Added
+- **Il connettore Joomla blocca le email di aggiornamento di Joomla.** Quelle email le manda
+  un'attività pianificata di Joomla (Sistema → Attività pianificate, "Update Notification"), che
+  non c'entra con l'interruttore "Aggiornamento automatico": per questo arrivavano anche con
+  quello su No. A ogni chiamata di Sentinel TD il connettore sospende quell'attività, se è attiva.
+  Le altre attività pianificate non vengono toccate. Vale anche in modalità firewall.
+- Nelle opzioni del plugin c'è "Blocca le email di aggiornamento di Joomla", acceso di base. Se
+  riattivi l'attività a mano viene sospesa di nuovo alla chiamata successiva: per tenerla accesa
+  metti No.
+
+### Verificato
+- Su un Joomla 5.4 vero, passando dal connettore: l'attività delle email si sospende e le altre
+  due restano attive; riattivata a mano si risospende; con l'opzione su No resta attiva; una
+  chiamata senza token non cambia niente.
+
 ## 2.55.4 — Repository nell'organizzazione tastieredigitali
 
 ### Changed

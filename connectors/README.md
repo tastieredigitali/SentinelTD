@@ -5,7 +5,7 @@ Sentinel TD talks to each website through a small connector installed on the sit
 | Platform | Source | Current version |
 |---|---|---|
 | WordPress | `wordpress/td-panopticon/` | 2.41.9 |
-| Joomla 4/5/6 | `joomla/plg_system_tdpanopticon/` | 1.43.2 |
+| Joomla 4/5/6 | `joomla/plg_system_tdpanopticon/` | 1.43.3 |
 
 The internal identifiers (`td-panopticon` folder, `tdpanopticon` Joomla element, REST
 namespace `tdpanopticon/v1`, token option name) are kept from the original project name
@@ -77,6 +77,10 @@ what the site sends *out*.
   panel, *Settings → Firewall mode*), after every job and after an update search. It runs the jobs
   (update, rollback, install, uninstall, vendor update, update search) with the same functions as
   the REST/com_ajax handlers and sends the results in the same session.
+- Joomla 1.43.3: at every call from Sentinel TD (and at every firewall-mode round) the connector
+  suspends Joomla's scheduled task of type `update.notification`, the one that emails "Joomla!
+  Update available" to the administrators. Other scheduled tasks are not touched. It is the plugin
+  option "Block Joomla update emails", on by default: set it to No to keep the task running.
 - Joomla 1.43.2: an install with `activate=1` enables the installed extension whatever its type,
   also when it was already installed but disabled, and for a package (`pkg_`) every extension the
   package contains. It used to enable only a plugin or module installed on its own, and for a

@@ -159,7 +159,36 @@ final class Tdpanopticon extends CMSPlugin
             throw new \RuntimeException('Unauthorized', 401);
         }
         $this->relayNoteContact();
+        $this->blockUpdateEmails();
         return $this->runTask(Factory::getApplication()->getInput()->getCmd('task', 'status'));
+    }
+
+    /* -----------------------------------------------------------------------
+     * Email "Disponibile aggiornamento di Joomla!" (1.43.3). Le manda un'attivita' pianificata
+     * di Joomla (Sistema → Attivita' pianificate, tipo "update.notification", plugin "Attivita' -
+     * Notifica di aggiornamento di Joomla!"), che non c'entra con l'interruttore "Aggiornamento
+     * automatico". Gli aggiornamenti li segue Sentinel TD: a ogni sua chiamata il connettore
+     * sospende quell'attivita', se e' attiva. Si spegne dalle opzioni del plugin
+     * ("Blocca le email di aggiornamento di Joomla" = No). Ritorna quante ne ha sospese.
+     * --------------------------------------------------------------------- */
+    private function blockUpdateEmails(): int
+    {
+        if ((int) $this->params->get('block_update_emails', 1) !== 1) {
+            return 0;
+        }
+        try {
+            $db = Factory::getContainer()->get('DatabaseDriver');
+            $q  = $db->getQuery(true)
+                ->update($db->quoteName('#__scheduler_tasks'))
+                ->set($db->quoteName('state') . ' = 0')
+                ->where($db->quoteName('type') . ' = ' . $db->quote('update.notification'))
+                ->where($db->quoteName('state') . ' = 1');
+            $db->setQuery($q);
+            $db->execute();
+            return (int) $db->getAffectedRows();
+        } catch (\Throwable $e) {
+            return 0;   // Joomla senza attivita' pianificate (4.0): niente da sospendere
+        }
     }
 
     /* -----------------------------------------------------------------------
@@ -296,6 +325,7 @@ final class Tdpanopticon extends CMSPlugin
     /** Un lavoro del pannello, con le stesse funzioni di com_ajax. */
     private function relayRun(array $job, string $hub): array
     {
+        $this->blockUpdateEmails();   // in modalita' firewall Sentinel non chiama mai direttamente
         $in = Factory::getApplication()->getInput();
         $in->set('extype', (string) ($job['type'] ?? ''));
         $in->set('slug', (string) ($job['slug'] ?? ''));
