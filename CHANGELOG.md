@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.55.7 — Aggiornamento riuscito ma segnato fallito per un errore HTTP del server
+
+### Fixed
+- **Dopo un errore HTTP all'aggiornamento Sentinel rilegge il sito.** Se il plugin, il tema o il
+  core è già alla versione attesa, l'aggiornamento risulta riuscito, con la nota "esito non
+  arrivato, HTTP 405: confermato rileggendo il sito" nel riepilogo e nel registro. Il 26/11/2026
+  su un sito WordPress il connettore aveva aggiornato Code Snippets (copia creata, plugin alla
+  versione nuova) ma il server aveva risposto 405 a tutte e due le richieste: è arrivato l'avviso
+  "aggiornamento non riuscito". Vale per WordPress, strada diretta. La riga dello storico di un
+  aggiornamento confermato così non ha il pulsante *Ripristina*: il nome della copia stava
+  nell'esito che non è arrivato (la copia sul sito c'è).
+
+### Changed
+- **Errore HTTP leggibile.** Al posto di "Client error '405 Method Not Allowed' for url … For more
+  information check: developer.mozilla.org" l'errore dice il codice, il server che ha risposto e
+  l'inizio della pagina di errore: "il server del sito ha risposto HTTP 405 Method Not Allowed
+  (server: Apache): …".
+
 ## 2.55.6 — Connettore WordPress 2.41.10: una sola copia per plugin o tema
 
 ### Changed

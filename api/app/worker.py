@@ -1529,6 +1529,60 @@ async def _relay_update(site: Site, action: str, params: dict) -> dict:
     return _result_of(d)
 
 
+def _http_error_text(ex: Exception) -> str:
+    """Errore di una chiamata al sito in parole: per una risposta HTTP di errore, il codice, il
+    server che ha risposto e l'inizio della pagina, al posto del testo di httpx ("Client error
+    ... For more information check: developer.mozilla.org") che non dice chi ha risposto."""
+    if not isinstance(ex, httpx.HTTPStatusError):
+        return str(ex)[:300]
+    r = ex.response
+    out = f"il server del sito ha risposto HTTP {r.status_code}"
+    if r.reason_phrase:
+        out += f" {r.reason_phrase}"
+    server = (r.headers.get("server") or "").strip()
+    if server:
+        out += f" (server: {server[:40]})"
+    try:
+        body = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", r.text or "")
+        body = " ".join(re.sub(r"<[^>]+>", " ", body).split())
+    except Exception:  # noqa: BLE001
+        body = ""
+    if body:
+        out += f": {body[:160]}"
+    return out
+
+
+RECHECK_PAUSE = 5.0   # secondi prima di rileggere il sito dopo un errore HTTP
+
+
+async def _done_anyway(site: Site, ext_type: str, slug: str, expected: str, why: str) -> dict | None:
+    """Dopo un errore HTTP all'aggiornamento si rilegge il sito: se l'elemento e' gia' alla
+    versione attesa l'aggiornamento c'e' stato, solo l'esito non e' arrivato.
+
+    26/11/2026, Ascom Servizi Belluno: Code Snippets 4.1.0 -> 4.1.1 fatto dal connettore (copia
+    creata, plugin aggiornato), ma il server ha risposto 405 a tutte e due le richieste e
+    Sentinel ha avvisato "non riuscito"."""
+    if site.cms != "wp" or not expected or ext_type not in ("plugin", "theme", "core"):
+        return None
+    try:
+        await asyncio.sleep(RECHECK_PAUSE)
+        from . import connectors as _conn   # dal modulo: e' quello che i test sostituiscono
+        st = await _conn.fetch_status(site, force=True)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(st, dict):
+        return None
+    if ext_type == "core":
+        now = str((st.get("core") or {}).get("current") or "")
+    else:
+        now = next((str(e.get("current") or "") for e in (st.get("extensions") or [])
+                    if isinstance(e, dict) and e.get("type") == ext_type and e.get("slug") == slug), "")
+    if now.strip() != expected.strip():
+        return None
+    return {"ok": True, "error": "", "new": expected, "noop": False, "message": "", "manual": False, "reason": "",
+            "backup": "", "backup_error": "", "confirmed": why}
+
+
 def backup_on(site: Site, global_on: bool) -> bool:
     """Copia prima degli aggiornamenti su questo sito: la scelta del sito (Modifica) vince su
     quella di Impostazioni."""
@@ -1628,7 +1682,13 @@ async def _update_one(site: Site, ext_type: str, slug: str, expected: str = "", 
                     except httpx.ReadTimeout:
                         raise
                     except Exception as ex:  # noqa: BLE001
-                        return {"ok": False, "error": (str(ex)[:300] + note)[:600], "new": ""}
+                        err = _http_error_text(ex)
+                        if isinstance(ex, httpx.HTTPStatusError):
+                            ok_now = await _done_anyway(site, ext_type, slug, expected,
+                                                        f"HTTP {ex.response.status_code}")
+                            if ok_now:
+                                return ok_now
+                        return {"ok": False, "error": (err[:300] + note)[:600], "new": ""}
                     if note and isinstance(d, dict) and not d.get("ok") and d.get("error"):
                         d = {**d, "error": str(d["error"]) + note}
             else:  # joomla via com_ajax
@@ -2309,8 +2369,17 @@ async def _update_site(ctx, site_id: int, manual: bool, outcome: dict):
                     await ctx["redis"].delete(_tr_key(site.id) if etype == "language" else _core_key(site.id))
                 except Exception:  # noqa: BLE001
                     pass
+            if res["ok"] and res.get("confirmed"):
+                # l'esito non era arrivato (errore HTTP), ma il sito e' alla versione attesa
+                log.warning("UPDATE CONFERMATO RILEGGENDO IL SITO '%s' (id=%s): %s %s -> %s (il server aveva risposto %s)",
+                            site.name, site.id, name, current, res["new"], res["confirmed"])
+                await evlog(s, "updates", "warn",
+                            f"{name} aggiornato a {res['new']}: l'esito non era arrivato (il server del sito aveva risposto {res['confirmed']}), confermato rileggendo il sito",
+                            site=site, details={"type": etype, "slug": slug, "from": current, "to": res["new"]})
             results.append({
-                "name": name + (" (pacchetto Sentinel)" if via_package else ""), "from": current,
+                "name": name + (" (pacchetto Sentinel)" if via_package else "")
+                        + (f" (esito non arrivato, {res['confirmed']}: confermato rileggendo il sito)" if res["ok"] and res.get("confirmed") else ""),
+                "from": current,
                 "to": res["new"] or "", "ok": res["ok"], "error": res["error"],
                 "type": etype, "slug": slug, "backup": res.get("backup") or "",
             })

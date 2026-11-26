@@ -84,6 +84,43 @@ class UpdateOneTests(unittest.IsolatedAsyncioTestCase):
         res, _c = await self.update(lambda request: httpx.Response(200, text="0"))
         self.assertNotIn("Primo tentativo", res["error"])
 
+    async def update_405(self, current):
+        """Backend e REST rispondono 405; alla rilettura il sito dichiara `current`."""
+        calls = []
+
+        def handler(request: httpx.Request):
+            calls.append("ajax" if request.url.path.endswith("admin-ajax.php") else "rest")
+            return httpx.Response(405, headers={"server": "Apache"},
+                                  text="<html><style>b{}</style><h1>Method Not Allowed</h1><p>Richiesta   rifiutata</p></html>")
+
+        async def status(s, force=False, **kw):
+            return {"cms": "wp", "core": {"current": "7.1.5"},
+                    "extensions": [{"type": "plugin", "slug": "code-snippets", "current": current},
+                                   {"type": "theme", "slug": "code-snippets", "current": "4.1.1"}]}
+
+        real = httpx.AsyncClient
+        with patch.object(worker.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw)), \
+             patch("app.settings_store.get_operational_settings", AsyncMock(return_value={"pre_update_backup": True})), \
+             patch.object(connectors, "fetch_status", status), patch.object(worker, "RECHECK_PAUSE", 0):
+            res = await worker._update_one(site(), "plugin", "code-snippets", "4.1.1")
+        return res, calls
+
+    async def test_http_error_but_the_site_is_at_the_expected_version(self):
+        # 26/11/2026: il connettore aveva aggiornato, il server ha risposto 405 a tutte e due
+        res, calls = await self.update_405("4.1.1")
+        self.assertEqual(calls, ["ajax", "rest"])
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["new"], "4.1.1")
+        self.assertEqual(res["confirmed"], "HTTP 405")
+
+    async def test_http_error_and_the_site_is_still_at_the_old_version(self):
+        res, _c = await self.update_405("4.1.0")      # il tema omonimo alla 4.1.1 non conta
+        self.assertFalse(res["ok"])
+        self.assertIn("il server del sito ha risposto HTTP 405 Method Not Allowed (server: Apache): "
+                      "Method Not Allowed Richiesta rifiutata", res["error"])
+        self.assertIn("Primo tentativo, dal backend del sito (admin-ajax): HTTP 405", res["error"])
+        self.assertNotIn("mozilla", res["error"])
+
     def test_waits_longer_than_the_server_limit(self):
         self.assertGreater(worker.UPDATE_WAIT, 300)
 
@@ -117,6 +154,26 @@ class UpdateLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(upd.await_count, 1)                   # il secondo plugin resta al prossimo giro
         cycle = [json.loads(x) for x in await self.redis.lrange("tg:cycle:report", 0, -1)]
         self.assertEqual([f["name"] for f in cycle[0]["failed"]], ["Rank Math"])
+
+    async def test_update_confirmed_by_rereading_is_a_success_with_a_note(self):
+        sid = await fixtures.SchedulerTests.add_site(self, status="ok", auto_update=True, cms="wp")
+        status = {"cms": "wp", "core": {"current": "7.1.3", "latest": "7.1.3", "update": False},
+                  "extensions": [{"type": "plugin", "name": "Code Snippets", "slug": "code-snippets",
+                                  "current": "4.1.0", "new": "4.1.1", "update": True}]}
+
+        async def fetch(s, force=False, **kw):
+            return status
+
+        res = {"ok": True, "error": "", "new": "4.1.1", "noop": False, "message": "", "manual": False,
+               "reason": "", "backup": "", "backup_error": "", "confirmed": "HTTP 405"}
+        notify = AsyncMock()
+        with patch.object(connectors, "fetch_status", fetch), patch.object(worker, "_update_one", AsyncMock(return_value=res)), \
+             patch.object(worker, "_visual_shot", AsyncMock(return_value=None)), \
+             patch.object(worker, "notify_dispatch", notify), patch.object(worker.asyncio, "sleep", AsyncMock()):
+            await worker._update_site({"redis": self.redis}, sid, False, {})
+        cycle = [json.loads(x) for x in await self.redis.lrange("tg:cycle:report", 0, -1)]
+        self.assertEqual(cycle[0].get("failed") or [], [])
+        self.assertIn("Code Snippets (esito non arrivato, HTTP 405: confermato rileggendo il sito)", json.dumps(cycle[0], ensure_ascii=False))
 
 
 if __name__ == "__main__":
